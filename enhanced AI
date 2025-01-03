@@ -1,0 +1,88 @@
+import spacy
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
+from typing import Dict, List, Any
+
+# Load spaCy model for NLP
+nlp = spacy.load('en_core_web_sm')
+
+# Load a transformer model for text generation (you'll need to install transformers library)
+model_name = "gpt2"
+generator = pipeline('text-generation', model=model_name)
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(model_name)
+
+class EnhancedAI_Agent:
+    def __init__(self):
+        self.knowledge_base = self.load_knowledge_base()
+        self.nlp = nlp
+
+    def load_knowledge_base(self) -> Dict[str, Any]:
+        # This is a simple example; in real scenarios, this would be much more comprehensive
+        return {
+            "intents": {
+                "greeting": ["hello", "hi", "hey", "greetings"],
+                "farewell": ["bye", "goodbye", "see you"],
+                "question": ["what", "who", "where", "when", "why", "how"],
+                "task": ["add", "task", "do", "remember"],
+                "weather": ["weather", "temperature", "forecast"]
+            },
+            "responses": {
+                "greeting": ["Hello there!", "Hi, how can I help you?"],
+                "farewell": ["Goodbye!", "Take care!"],
+                "not_found": "I'm not sure how to respond to that. Can you rephrase or ask something else?"
+            }
+        }
+
+    def process_input(self, user_input: str) -> str:
+        doc = self.nlp(user_input.lower())
+        intent = self.detect_intent(doc)
+        
+        if intent == "greeting":
+            return self.generate_response(intent)
+        elif intent == "farewell":
+            return self.generate_response(intent)
+        elif intent == "question":
+            return self.answer_question(user_input)
+        elif intent == "task":
+            return self.manage_task(user_input)
+        elif intent == "weather":
+            return self.get_weather()  # Placeholder for future integration
+        else:
+            return self.generate_response("not_found")
+
+    def detect_intent(self, doc) -> str:
+        for intent, keywords in self.knowledge_base["intents"].items():
+            if any(token.text in keywords for token in doc):
+                return intent
+        return "not_found"
+
+    def generate_response(self, intent: str) -> str:
+        # Here we use a simple random choice. For more dynamic responses:
+        if intent in self.knowledge_base["responses"]:
+            return random.choice(self.knowledge_base["responses"][intent])
+        
+        # Using the transformer model for more dynamic responses
+        prompt = f"Provide a response for a {intent} intent:"
+        return generator(prompt, max_length=50, num_return_sequences=1)[0]['generated_text'].split(prompt)[-1].strip()
+
+    def answer_question(self, question: str) -> str:
+        # Placeholder for more complex question answering. Here we use generation:
+        prompt = f"Answer the following question: {question}"
+        return generator(prompt, max_length=100, num_return_sequences=1)[0]['generated_text'].split(prompt)[-1].strip()
+
+    def manage_task(self, task_description: str) -> str:
+        # Here, we'll simulate task management by just echoing back the task
+        return f"Task '{task_description}' added to your to-do list."
+
+    def get_weather(self) -> str:
+        # Placeholder for weather API integration
+        return "It's a sunny day with a high of 25°C."
+
+# Example usage
+if __name__ == "__main__":
+    agent = EnhancedAI_Agent()
+    while True:
+        user_input = input("You: ")
+        if user_input.lower() == 'quit':
+            break
+        print(f"AI: {agent.process_input(user_input)}")
