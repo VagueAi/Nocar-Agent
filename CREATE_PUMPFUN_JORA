@@ -1,0 +1,79 @@
+from typing import Dict, Any
+import random
+import json
+
+class Jora_AI:
+    def __init__(self):
+        self.knowledge_base = self.load_knowledge_base()
+        self.tasks = []
+
+    def load_knowledge_base(self) -> Dict[str, Any]:
+        return {
+            "greetings": ["Hey there!", "Hello, friend!", "Hi, how's it going?"],
+            "farewells": ["See you later!", "Goodbye, take care!", "Until next time!"],
+            "answers": {
+                "What's your name?": "I'm Jora, nice to meet you!",
+                "How are you?": "I'm always good when I'm helping friends like you!",
+                "What can you do?": "I can chat, answer simple questions, manage tasks, and create Pump.fun tokens."
+            }
+        }
+
+    def process_input(self, user_input: str) -> str:
+        if any(word in user_input.lower() for word in ["hello", "hi", "hey"]):
+            return random.choice(self.knowledge_base["greetings"])
+        elif any(word in user_input.lower() for word in ["bye", "goodbye", "see you"]):
+            return random.choice(self.knowledge_base["farewells"])
+        elif user_input.lower() in self.knowledge_base["answers"]:
+            return self.knowledge_base["answers"][user_input]
+        elif "create token" in user_input.lower():
+            return self.create_pumpfun_token(user_input)
+        elif "add" in user_input.lower() or "task" in user_input.lower():
+            return self.manage_task(user_input)
+        else:
+            return "I'm not sure how to respond to that. Can you ask something else or rephrase?"
+
+    def manage_task(self, task_description: str) -> str:
+        task = task_description.split('add', 1)[-1].strip() or task_description.split('task', 1)[-1].strip()
+        if task:
+            self.tasks.append(task)
+            return f"Task '{task}' added to your list."
+        else:
+            return "Could you specify the task you want to add?"
+
+    def create_pumpfun_token(self, description: str) -> str:
+        # This is a simulation. In a real scenario, you'd need to interact with the Solana network.
+        token_details = self.parse_token_details(description)
+        
+        if token_details:
+            # Simulating token creation
+            token_data = {
+                "name": token_details["name"],
+                "symbol": token_details["symbol"],
+                "description": token_details["description"],
+                "initial_supply": token_details.get("initial_supply", "1,000,000"),
+                "status": "Token creation simulated successfully!"
+            }
+            return json.dumps(token_data, indent=2)
+        else:
+            return "Please provide token name, symbol, and description separated by commas."
+
+    def parse_token_details(self, text: str) -> Dict[str, str]:
+        parts = [part.strip() for part in text.split(',')]
+        if len(parts) >= 3:
+            return {
+                "name": parts[0],
+                "symbol": parts[1],
+                "description": ', '.join(parts[2:]),
+                "initial_supply": "1,000,000"  # Default initial supply
+            }
+        return None
+
+# Example usage
+if __name__ == "__main__":
+    jora = Jora_AI()
+    
+    # Simulating interaction with Jora for token creation
+    print(jora.process_input("Hello!"))
+    print(jora.process_input("What can you do?"))
+    print(jora.process_input("create token MyToken, MTK, This is my new token for testing"))
+    print(jora.process_input("Goodbye!"))
