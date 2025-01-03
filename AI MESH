@@ -1,0 +1,124 @@
+import spacy
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
+from nltk.sentiment import SentimentIntensityAnalyzer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import classification_report, accuracy_score
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+import pandas as pd
+from flask import Flask, request, jsonify
+
+# Initialize NLP tools
+nlp = spacy.load("en_core_web_sm")
+sia = SentimentIntensityAnalyzer()
+
+# Load text generation model
+generator = pipeline('text-generation', model='gpt2')
+tokenizer = AutoTokenizer.from_pretrained('gpt2')
+model = AutoModelForCausalLM.from_pretrained('gpt2')
+
+# Custom Neural Network for Classification
+class Net(nn.Module):
+    def __init__(self, input_size, hidden_size, num_classes):
+        super(Net, self).__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size) 
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(hidden_size, num_classes)  
+    
+    def forward(self, x):
+        out = self.fc1(x)
+        out = self.relu(out)
+        out = self.fc2(out)
+        return out
+
+# Data Preprocessing and Sentiment Analysis
+def preprocess_and_analyze_sentiment(text_data):
+    vectorizer = TfidfVectorizer(max_features=5000)
+    X = vectorizer.fit_transform(text_data)
+    
+    sentiments = [sia.polarity_scores(text)['compound'] for text in text_data]
+    X = pd.DataFrame(X.toarray()).join(pd.DataFrame(sentiments, columns=['sentiment'])).values
+    
+    return X
+
+# Train a simple sentiment classifier
+def train_sentiment_classifier(X, y):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    clf = MultinomialNB()
+    clf.fit(X_train, y_train)
+    
+    y_pred = clf.predict(X_test)
+    print(classification_report(y_test, y_pred))
+    return clf, vectorizer
+
+# PyTorch Training Loop for Custom NN
+def train_neural_network(X, y, epochs=10, batch_size=32):
+    X_tensor = torch.FloatTensor(X)
+    y_tensor = torch.LongTensor(y)
+    
+    dataset = TensorDataset(X_tensor, y_tensor)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    
+    input_size = X.shape[1]
+    hidden_size = 50
+    num_classes = len(set(y))
+    
+    net = Net(input_size, hidden_size, num_classes)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(net.parameters(), lr=0.001)
+    
+    for epoch in range(epochs):
+        for inputs, labels in dataloader:
+            optimizer.zero_grad()
+            outputs = net(inputs)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+        print(f"Epoch {epoch+1}/{epochs}, Loss: {loss.item():.4f}")
+    
+    return net
+
+# Example usage in a Flask API
+app = Flask(__name__)
+
+@app.route('/analyze', methods=['POST'])
+def analyze_text():
+    text = request.json.get('text', '')
+    doc = nlp(text)
+    
+    # Sentiment Analysis
+    sentiment_score = sia.polarity_scores(text)['compound']
+    
+    # Text Generation
+    generated_text = generator(text, max_length=50, num_return_sequences=1)[0]['generated_text']
+    
+    # Use of trained models (assuming you have trained models)
+    # Here, we're just simulating with placeholder values
+    mock_classification = "Positive" if sentiment_score >= 0 else "Negative"
+    mock_nn_classification = "Neutral"  # Placeholder
+    
+    return jsonify({
+        "entities": [{"text": ent.text, "label": ent.label_} for ent in doc.ents],
+        "sentiment": sentiment_score,
+        "generated_text": generated_text,
+        "classification": {
+            "naive_bayes": mock_classification,
+            "neural_network": mock_nn_classification
+        }
+    })
+
+if __name__ == "__main__":
+    # Example data for training (you should use real data for actual training)
+    texts = ["I love this product!", "This product is awful.", "It's okay, I guess."]
+    labels = [1, 0, 1]  # 1 for positive, 0 for negative sentiment
+    
+    X = preprocess_and_analyze_sentiment(texts)
+    nb_clf, vectorizer = train_sentiment_classifier(X[:, :-1], labels)  # Exclude sentiment column for Naïve Bayes
+    nn_model = train_neural_network(X, labels)
+    
+    app.run(debug=True)
