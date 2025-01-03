@@ -1,0 +1,129 @@
+import random
+from typing import Dict, List, Any
+import json
+
+class Jora_AI:
+    def __init__(self):
+        self.knowledge_base = self.load_knowledge_base()
+        self.tasks = []
+        self.memory = {}  # Simple memory for learning from feedback
+        self.weather_cache = {}  # Cache for weather data
+
+    def load_knowledge_base(self) -> Dict[str, Any]:
+        return {
+            "greetings": ["Hello!", "Hi there!", "Welcome!"],
+            "farewells": ["Goodbye!", "See you later!", "Take care!"],
+            "answers": {
+                "What's your name?": "I'm Jora, your AI assistant.",
+                "How are you?": "I'm doing great, thanks for asking!",
+                "What can you do?": "I can chat, manage your tasks, learn from our interactions, and even check the weather for you."
+            },
+            "intents": {
+                "greeting": ["hello", "hi", "hey"],
+                "farewell": ["bye", "goodbye", "see you"],
+                "question": ["what", "who", "where", "when", "why", "how"],
+                "task": ["add", "task", "do", "remember"],
+                "weather": ["weather", "temperature", "forecast"]
+            }
+        }
+
+    def process_input(self, user_input: str) -> str:
+        intent = self.detect_intent(user_input)
+        
+        if intent == "greeting":
+            return random.choice(self.knowledge_base["greetings"])
+        elif intent == "farewell":
+            return random.choice(self.knowledge_base["farewells"])
+        elif intent == "question":
+            return self.answer_question(user_input)
+        elif intent == "task":
+            return self.manage_task(user_input)
+        elif intent == "weather":
+            return self.get_weather()
+        else:
+            return "I'm not sure how to respond to that. Can you rephrase or ask something else?"
+
+    def detect_intent(self, user_input: str) -> str:
+        user_input = user_input.lower()
+        for intent, keywords in self.knowledge_base["intents"].items():
+            if any(keyword in user_input for keyword in keywords):
+                return intent
+        return "unknown"
+
+    def answer_question(self, question: str) -> str:
+        return self.knowledge_base["answers"].get(question, "I'm not sure about that. Can you teach me?")
+
+    def manage_task(self, task_description: str) -> str:
+        if "remove" in task_description.lower():
+            return self.remove_task(task_description)
+        elif "list" in task_description.lower():
+            return self.list_tasks()
+        else:
+            return self.add_task(task_description)
+
+    def add_task(self, task_description: str) -> str:
+        task = task_description.split('add', 1)[-1].strip() or task_description.split('task', 1)[-1].strip()
+        if task:
+            self.tasks.append(task)
+            return f"Task '{task}' added to your list."
+        else:
+            return "Could you specify the task you want to add?"
+
+    def list_tasks(self) -> str:
+        if not self.tasks:
+            return "You have no tasks at the moment."
+        return "Here are your tasks:\n" + "\n".join([f"{i+1}. {task}" for i, task in enumerate(self.tasks)])
+
+    def remove_task(self, task_description: str) -> str:
+        try:
+            task_index = int(task_description.split('remove', 1)[-1].strip()) - 1
+            if 0 <= task_index < len(self.tasks):
+                removed_task = self.tasks.pop(task_index)
+                return f"Task '{removed_task}' has been removed."
+            else:
+                return "Invalid task number. Please check your task list for the correct numbers."
+        except ValueError:
+            return "Please provide a valid task number to remove."
+
+    def get_weather(self) -> str:
+        # Simulated weather data. In reality, this would be an API call.
+        if 'weather' not in self.weather_cache or self.weather_cache['weather']['age'] > 3600:  # Update every hour
+            # Here, you'd call an actual weather API
+            self.weather_cache['weather'] = {
+                'condition': 'Sunny',
+                'temperature': '25°C',
+                'age': 0  # Reset the age of the data
+            }
+        
+        weather = self.weather_cache['weather']
+        weather['age'] += 10  # Simulate time passing
+        return f"The weather is {weather['condition']} with a temperature of {weather['temperature']}."
+
+    def learn_from_feedback(self, user_input: str, correct_answer: str):
+        # Store new information or correct answers in memory
+        self.memory[user_input] = correct_answer
+
+    def retrieve_from_memory(self, user_input: str) -> str:
+        # Check if we've learned about this query before
+        return self.memory.get(user_input, None)
+
+# Example usage
+if __name__ == "__main__":
+    jora = Jora_AI()
+    
+    # Simulating a conversation with Jora
+    print(jora.process_input("Hello!"))
+    print(jora.process_input("What's your name?"))
+    print(jora.process_input("Add buy groceries to my tasks"))
+    print(jora.process_input("List tasks"))
+    print(jora.process_input("What can you do?"))
+    print(jora.process_input("What's the weather like?"))
+    print(jora.process_input("Remove task 1"))  # Remove the first task
+    print(jora.process_input("List tasks"))
+    print(jora.process_input("Who invented the light bulb?"))
+    
+    # Simulate learning from feedback
+    jora.learn_from_feedback("Who invented the light bulb?", "Thomas Edison is often credited with inventing the first commercially practical incandescent light bulb.")
+    print(jora.process_input("Who invented the light bulb?"))  # Jora now remembers the correct answer
+
+    print(jora.process_input("Goodbye!"))
