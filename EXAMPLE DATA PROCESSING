@@ -1,0 +1,88 @@
+import pandas as pd
+import numpy as np
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+
+# Example dataset
+data = {
+    'Age': [25, 30, np.nan, 40, 35],
+    'Income': [50000, 70000, 60000, np.nan, 80000],
+    'Gender': ['Male', 'Female', 'Male', 'Female', 'Other'],
+    'Education': ['Bachelor', 'Master', 'PhD', 'Bachelor', 'Master']
+}
+
+df = pd.DataFrame(data)
+
+# 1. Handling Missing Data
+def handle_missing_data(df):
+    # Numerical data - using mean imputation
+    num_imputer = SimpleImputer(strategy='mean')
+    df[['Age', 'Income']] = num_imputer.fit_transform(df[['Age', 'Income']])
+    
+    # Categorical data - using mode imputation (most frequent)
+    cat_imputer = SimpleImputer(strategy='most_frequent')
+    df['Education'] = cat_imputer.fit_transform(df[['Education']])
+    
+    return df
+
+# 2. Encode Categorical Variables
+def encode_categorical(df):
+    # One-hot encoding for 'Gender'
+    encoder = OneHotEncoder(drop='first', sparse=False)  # drop='first' to avoid multicollinearity
+    gender_encoded = encoder.fit_transform(df[['Gender']])
+    gender_df = pd.DataFrame(gender_encoded, columns=encoder.get_feature_names_out(['Gender']))
+    
+    # Education can be ordinal - we map to numeric values for simplicity
+    education_map = {'Bachelor': 1, 'Master': 2, 'PhD': 3}
+    df['Education'] = df['Education'].map(education_map)
+    
+    df = pd.concat([df, gender_df], axis=1).drop('Gender', axis=1)
+    return df
+
+# 3. Feature Scaling
+def scale_features(df):
+    # Standardize features by removing the mean and scaling to unit variance
+    scaler = StandardScaler()
+    df[['Age', 'Income', 'Education']] = scaler.fit_transform(df[['Age', 'Income', 'Education']])
+    return df
+
+# 4. Outlier Detection and Handling
+def handle_outliers(df):
+    # Here we use IQR method for outlier detection
+    Q1 = df['Income'].quantile(0.25)
+    Q3 = df['Income'].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    # Define bounds for outliers
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    # Clip outliers
+    df['Income'] = np.clip(df['Income'], lower_bound, upper_bound)
+    return df
+
+# 5. Feature Engineering
+def engineer_features(df):
+    # Example of creating a new feature
+    df['Age_Income_Ratio'] = df['Age'] / df['Income']
+    return df
+
+# Main preprocessing function
+def preprocess_data(df):
+    df = handle_missing_data(df)
+    df = encode_categorical(df)
+    df = scale_features(df)
+    df = handle_outliers(df)
+    df = engineer_features(df)
+    return df
+
+# Apply preprocessing
+processed_df = preprocess_data(df)
+
+# Display results
+print("Original DataFrame:")
+print(df)
+print("\nProcessed DataFrame:")
+print(processed_df)
